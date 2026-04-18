@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SELIC & INCC — Análise de Distribuição</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --teal:    #0E5A6B;
+    --teal2:   #1A7A8A;
+    --teal3:   #2A9AAA;
+    --incc:    #1A3A5A;
+    --incc2:   #2A5A8A;
+    --gold:    #F5C842;
+    --golddim: #c9a020;
+    --bg:      #F4F2EE;
+    --surface: #FFFFFF;
+    --border:  #E0DDD8;
+    --text:    #1A1A1A;
+    --muted:   #7A776F;
+    --light:   #EAE8E3;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ─────────────────────────────────────────────── */
+  .page-header {
+    background: var(--teal);
+    padding: 40px 48px 36px;
+    position: relative;
+    overflow: hidden;
+  }
+  .page-header::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 260px; height: 260px;
+    border-radius: 50%;
+    background: rgba(245,200,66,0.08);
+  }
+  .page-header::after {
+    content: '';
+    position: absolute;
+    bottom: -40px; left: 200px;
+    width: 160px; height: 160px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.04);
+  }
+  .header-eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: rgba(245,200,66,0.8);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .header-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 36px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.1;
+    margin-bottom: 10px;
+  }
+  .header-title span { color: var(--gold); }
+  .header-sub {
+    font-size: 14px;
+    color: rgba(255,255,255,0.55);
+    font-weight: 300;
+    max-width: 560px;
+    line-height: 1.6;
+  }
+  .header-meta {
+    display: flex;
+    gap: 24px;
+    margin-top: 24px;
+    flex-wrap: wrap;
+  }
+  .meta-chip {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.75);
+    font-size: 12px;
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-family: 'DM Mono', monospace;
+  }
+  .meta-chip strong { color: var(--gold); }
+
+  /* ── TABS ────────────────────────────────────────────────── */
+  .tabs-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 48px;
+    display: flex;
+    gap: 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .tab-btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--muted);
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    padding: 16px 24px;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+    letter-spacing: 0.2px;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--teal); border-bottom-color: var(--teal); }
+  .tab-btn.active.incc-tab { color: var(--incc); border-bottom-color: var(--incc); }
+
+  /* ── CONTENT ─────────────────────────────────────────────── */
+  .tab-content { display: none; padding: 40px 48px 60px; }
+  .tab-content.active { display: block; }
+
+  /* ── STAT GRID ───────────────────────────────────────────── */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 36px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .stat-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-family: 'DM Mono', monospace;
+    margin-bottom: 6px;
+  }
+  .stat-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 24px;
+    font-weight: 600;
+  }
+  .selic-val { color: var(--teal); }
+  .incc-val  { color: var(--incc); }
+  .stat-note {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+
+  /* ── SECTION TITLE ───────────────────────────────────────── */
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .section-desc {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 20px;
+    line-height: 1.6;
+    max-width: 640px;
+  }
+
+  /* ── RANGE BUTTONS ───────────────────────────────────────── */
+  .range-btns {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .range-btn {
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    padding: 6px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1.5px solid;
+    transition: all 0.15s;
+    font-weight: 500;
+  }
+  .range-btn.selic-btn        { border-color: var(--teal); color: var(--teal); background: transparent; }
+  .range-btn.selic-btn.active { background: var(--teal); color: #fff; }
+  .range-btn.incc-btn         { border-color: var(--incc); color: var(--incc); background: transparent; }
+  .range-btn.incc-btn.active  { background: var(--incc); color: #fff; }
+  .range-btn.reset-btn        { border-color: var(--border); color: var(--muted); background: transparent; }
+  .range-btn.reset-btn.active { background: var(--light); color: var(--text); }
+
+  /* ── PROB BANNER ─────────────────────────────────────────── */
+  .prob-banner {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .prob-main {
+    display: flex;
+    flex-direction: column;
+  }
+  .prob-label { font-size: 11px; color: var(--muted); letter-spacing: 0.6px; text-transform: uppercase; font-family: 'DM Mono', monospace; }
+  .prob-number {
+    font-family: 'Syne', sans-serif;
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .prob-divider { width: 1px; height: 48px; background: var(--border); }
+  .prob-detail { font-size: 14px; color: var(--text); line-height: 1.5; }
+  .prob-detail strong { font-weight: 500; }
+  .prob-anos {
+    font-family: 'DM Mono', monospace;
+    font-size: 16px;
+    font-weight: 500;
+    margin-top: 2px;
+  }
+
+  /* ── CHART WRAPPER ───────────────────────────────────────── */
+  .chart-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 36px;
+    position: relative;
+  }
+  .chart-inner { position: relative; width: 100%; height: 280px; }
+
+  /* ── DIVIDER ─────────────────────────────────────────────── */
+  .section-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 36px 0;
+  }
+
+  /* ── HISTORICO TABLE ─────────────────────────────────────── */
+  .hist-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 8px;
+    margin-bottom: 36px;
+  }
+  .hist-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: border-color 0.15s;
+  }
+  .hist-card:hover { border-color: var(--teal); }
+  .hist-card.incc:hover { border-color: var(--incc); }
+  .hist-year { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--muted); }
+  .hist-val  { font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 500; }
+  .hist-badge {
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: 'DM Mono', monospace;
+  }
+  .q1  { background: #DBEEFF; color: #0A4A6B; }
+  .q2  { background: #D4F5E2; color: #0A6B3A; }
+  .q3  { background: #FFF3C8; color: #7A5A00; }
+  .q4  { background: #FFD9D9; color: #8B0000; }
+  .out { background: #F0F0F0; color: #666; }
+
+  /* ── EXPLAINER ───────────────────────────────────────────── */
+  .explainer {
+    background: #FFFBEF;
+    border: 1px solid rgba(245,200,66,0.4);
+    border-left: 4px solid var(--gold);
+    border-radius: 0 8px 8px 0;
+    padding: 16px 20px;
+    margin-bottom: 28px;
+    font-size: 13px;
+    color: #5A4A00;
+    line-height: 1.7;
+  }
+  .explainer strong { color: #3A2A00; }
+
+  /* ── FOOTER ──────────────────────────────────────────────── */
+  .page-footer {
+    background: var(--teal);
+    padding: 20px 48px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.45);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="page-header">
+  <div class="header-eyebrow">Análise Quantitativa — SOMMA Investimentos</div>
+  <div class="header-title">Distribuição histórica<br><span>SELIC & INCC</span></div>
+  <div class="header-sub">
+    Probabilidade real de cada faixa de taxa — construída sobre dados históricos anuais.
+    Selecione uma faixa no gráfico para ver quantos anos, em %, o índice ficou nela.
+  </div>
+  <div class="header-meta">
+    <div class="meta-chip">Fonte: <strong>Bacen</strong> (SELIC)</div>
+    <div class="meta-chip">Fonte: <strong>FGV</strong> (INCC)</div>
+    <div class="meta-chip">Período: <strong>2005–2025</strong></div>
+    <div class="meta-chip">2020 excluído: <strong>outlier COVID</strong></div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs-bar">
+  <button class="tab-btn active" onclick="switchTab('selic',this)">SELIC</button>
+  <button class="tab-btn incc-tab" onclick="switchTab('incc',this)">INCC</button>
+</div>
+
+<!-- ═══════ SELIC ═══════ -->
+<div id="tab-selic" class="tab-content active">
+
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">Média histórica</div>
+      <div class="stat-value selic-val" id="selic-mean">—</div>
+      <div class="stat-note">excl. 2020</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Desvio padrão (σ)</div>
+      <div class="stat-value selic-val" id="selic-std">—</div>
+      <div class="stat-note">volatilidade histórica</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Mínimo</div>
+      <div class="stat-value selic-val" id="selic-min">—</div>
+      <div class="stat-note" id="selic-min-yr">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Máximo</div>
+      <div class="stat-value selic-val" id="selic-max">—</div>
+      <div class="stat-note" id="selic-max-yr">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Mediana (Q2)</div>
+      <div class="stat-value selic-val" id="selic-med">—</div>
+      <div class="stat-note">50% dos anos abaixo</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Anos na amostra</div>
+      <div class="stat-value selic-val" id="selic-n">—</div>
+      <div class="stat-note">2005–2025 excl. 2020</div>
+    </div>
+  </div>
+
+  <div class="explainer">
+    <strong>Como ler este gráfico:</strong> a curva mostra a distribuição de probabilidade da SELIC anual com base nos dados históricos reais.
+    Clique em uma faixa abaixo para ver a área sombreada — essa área é a <strong>probabilidade real</strong> de a SELIC cair naquele intervalo,
+    calculada sobre os 20 anos de histórico. O número em destaque já diz tudo: "X% de chance = Y anos em cada 20."
+  </div>
+
+  <div class="section-title">Selecione uma faixa de taxa</div>
+  <div class="section-desc">Cada botão sombreia a região correspondente e calcula a probabilidade histórica de ocorrência.</div>
+
+  <div class="range-btns" id="selic-range-btns">
+    <button class="range-btn selic-btn active" onclick="setSelicRange(this,0,5)">Abaixo de 5%</button>
+    <button class="range-btn selic-btn" onclick="setSelicRange(this,5,9)">5% – 9%</button>
+    <button class="range-btn selic-btn" onclick="setSelicRange(this,9,13)">9% – 13%</button>
+    <button class="range-btn selic-btn" onclick="setSelicRange(this,13,18)">13% – 18%</button>
+    <button class="range-btn selic-btn" onclick="setSelicRange(this,18,99)">Acima de 18%</button>
+    <button class="range-btn reset-btn active" onclick="setSelicRange(this,-99,99)">Ver tudo</button>
+  </div>
+
+  <div class="prob-banner" id="selic-banner">
+    <div class="prob-main">
+      <div class="prob-label">Probabilidade histórica</div>
+      <div class="prob-number selic-val" id="selic-prob">—</div>
+    </div>
+    <div class="prob-divider"></div>
+    <div>
+      <div class="prob-detail">Faixa: <strong id="selic-range-label">—</strong></div>
+      <div class="prob-anos selic-val" id="selic-anos">—</div>
+    </div>
+    <div class="prob-divider"></div>
+    <div>
+      <div class="prob-detail" id="selic-context">—</div>
+    </div>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-inner">
+      <canvas id="selicChart" role="img" aria-label="Distribuição normal da SELIC com área de probabilidade sombreada"></canvas>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <div class="section-title">Histórico anual — SELIC real (% a.a.)</div>
+  <div class="section-desc">Cada ano com seu valor real e quartil correspondente. Quartis calculados excluindo 2020.</div>
+  <div class="hist-grid" id="selic-hist-grid"></div>
+
+</div>
+
+<!-- ═══════ INCC ═══════ -->
+<div id="tab-incc" class="tab-content">
+
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">Média histórica</div>
+      <div class="stat-value incc-val" id="incc-mean">—</div>
+      <div class="stat-note">excl. 2020</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Desvio padrão (σ)</div>
+      <div class="stat-value incc-val" id="incc-std">—</div>
+      <div class="stat-note">volatilidade histórica</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Mínimo</div>
+      <div class="stat-value incc-val" id="incc-min">—</div>
+      <div class="stat-note" id="incc-min-yr">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Máximo</div>
+      <div class="stat-value incc-val" id="incc-max">—</div>
+      <div class="stat-note" id="incc-max-yr">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Mediana (Q2)</div>
+      <div class="stat-value incc-val" id="incc-med">—</div>
+      <div class="stat-note">50% dos anos abaixo</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Anos na amostra</div>
+      <div class="stat-value incc-val" id="incc-n">—</div>
+      <div class="stat-note">2005–2025 excl. 2020</div>
+    </div>
+  </div>
+
+  <div class="explainer">
+    <strong>Como ler este gráfico:</strong> o INCC é o indexador de custo de obra — essencial para modelos de viabilidade de FII e CRI imobiliários.
+    A curva mostra em quais faixas o INCC ficou ao longo dos últimos 20 anos.
+    Clique em uma faixa para ver a <strong>probabilidade real</strong> de o custo de obra variar naquele intervalo —
+    direto no argumento de sensibilidade para o cliente.
+  </div>
+
+  <div class="section-title">Selecione uma faixa de taxa</div>
+  <div class="section-desc">Cada botão sombreia a região correspondente e calcula a probabilidade histórica de ocorrência.</div>
+
+  <div class="range-btns" id="incc-range-btns">
+    <button class="range-btn incc-btn active" onclick="setInccRange(this,0,5)">Abaixo de 5%</button>
+    <button class="range-btn incc-btn" onclick="setInccRange(this,5,8)">5% – 8%</button>
+    <button class="range-btn incc-btn" onclick="setInccRange(this,8,12)">8% – 12%</button>
+    <button class="range-btn incc-btn" onclick="setInccRange(this,12,99)">Acima de 12%</button>
+    <button class="range-btn reset-btn" onclick="setInccRange(this,-99,99)">Ver tudo</button>
+  </div>
+
+  <div class="prob-banner" id="incc-banner">
+    <div class="prob-main">
+      <div class="prob-label">Probabilidade histórica</div>
+      <div class="prob-number incc-val" id="incc-prob">—</div>
+    </div>
+    <div class="prob-divider"></div>
+    <div>
+      <div class="prob-detail">Faixa: <strong id="incc-range-label">—</strong></div>
+      <div class="prob-anos incc-val" id="incc-anos">—</div>
+    </div>
+    <div class="prob-divider"></div>
+    <div>
+      <div class="prob-detail" id="incc-context">—</div>
+    </div>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-inner">
+      <canvas id="inccChart" role="img" aria-label="Distribuição normal do INCC com área de probabilidade sombreada"></canvas>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <div class="section-title">Histórico anual — INCC real (% a.a.)</div>
+  <div class="section-desc">Cada ano com seu valor real e quartil correspondente. Quartis calculados excluindo 2020.</div>
+  <div class="hist-grid" id="incc-hist-grid"></div>
+
+</div>
+
+<!-- FOOTER -->
+<div class="page-footer">
+  <span>SOMMA Investimentos — Análise quantitativa interna</span>
+  <span>Fontes: Bacen (SELIC mensal) | FGV (INCC anual) | 2020 excluído como outlier COVID-19</span>
+</div>
+
+<script>
+// ─── DADOS ──────────────────────────────────────────────────────
+const selicMonthly = {
+  2005:[1.38,1.22,1.53,1.41,1.50,1.59,1.51,1.66,1.50,1.41,1.38,1.47],
+  2006:[1.43,1.15,1.42,1.08,1.28,1.18,1.17,1.26,1.06,1.09,1.02,0.99],
+  2007:[1.08,0.87,1.05,0.94,1.03,0.91,0.97,0.99,0.80,0.93,0.84,0.84],
+  2008:[0.93,0.80,0.84,0.90,0.88,0.95,1.06,1.01,1.10,1.17,1.01,1.12],
+  2009:[1.05,0.85,0.97,0.83,0.77,0.76,0.79,0.69,0.69,0.69,0.66,0.73],
+  2010:[0.66,0.59,0.76,0.67,0.75,0.79,0.86,0.89,0.85,0.81,0.81,0.93],
+  2011:[0.86,0.84,0.92,0.84,0.99,0.96,0.97,1.07,0.94,0.88,0.86,0.91],
+  2012:[0.89,0.75,0.82,0.71,0.74,0.64,0.68,0.69,0.54,0.61,0.55,0.55],
+  2013:[0.60,0.49,0.55,0.61,0.60,0.61,0.72,0.71,0.71,0.81,0.72,0.79],
+  2014:[0.85,0.79,0.77,0.82,0.87,0.82,0.95,0.87,0.91,0.95,0.84,0.96],
+  2015:[0.94,0.82,1.04,0.95,0.99,1.07,1.18,1.11,1.11,1.11,1.06,1.16],
+  2016:[1.06,1.00,1.16,1.06,1.11,1.16,1.11,1.22,1.11,1.05,1.04,1.12],
+  2017:[1.09,0.87,1.05,0.79,0.93,0.81,0.80,0.80,0.64,0.64,0.57,0.54],
+  2018:[0.58,0.47,0.53,0.52,0.52,0.52,0.54,0.57,0.47,0.54,0.49,0.49],
+  2019:[0.54,0.49,0.47,0.52,0.54,0.47,0.57,0.50,0.46,0.48,0.38,0.37],
+  2020:[0.38,0.29,0.34,0.28,0.24,0.21,0.19,0.16,0.16,0.16,0.15,0.16],
+  2021:[0.15,0.13,0.20,0.21,0.27,0.31,0.36,0.43,0.44,0.49,0.59,0.77],
+  2022:[0.73,0.76,0.93,0.83,1.03,1.02,1.03,1.17,1.07,1.02,1.02,1.12],
+  2023:[1.12,0.92,1.17,0.92,1.12,1.07,1.07,1.14,0.97,1.00,0.92,0.89],
+  2024:[0.97,0.80,0.83,0.89,0.83,0.79,0.91,0.87,0.84,0.93,0.79,0.93],
+  2025:[1.01,0.99,0.96,1.06,1.14,1.10,1.28,1.16,1.22,1.28,1.05,1.22],
+};
+const inccAnnual = {
+  2005:6.85,2006:5.05,2007:6.03,2008:11.97,2009:3.21,
+  2010:7.57,2011:7.58,2012:7.26,2013:8.07,2014:6.74,
+  2015:7.22,2016:6.34,2017:4.03,2018:3.97,2019:4.13,
+  2020:8.68,
+  2021:14.03,2022:9.41,2023:3.34,2024:6.33,2025:6.09
+};
+
+// ─── HELPERS ────────────────────────────────────────────────────
+function selicAnual(y) {
+  const m = selicMonthly[y];
+  if (!m) return null;
+  return (m.reduce((a,v) => a*(1+v/100), 1) - 1) * 100;
+}
+function mean(a) { return a.reduce((s,v)=>s+v,0)/a.length; }
+function std(a)  { const m=mean(a); return Math.sqrt(a.reduce((s,v)=>s+(v-m)**2,0)/a.length); }
+function erf(x) {
+  const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;
+  const sign=x<0?-1:1; x=Math.abs(x);
+  const t=1/(1+p*x);
+  return sign*(1-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x));
+}
+function normalCDF(x,mu,sig) { return 0.5*(1+erf((x-mu)/(sig*Math.sqrt(2)))); }
+function normalPDF(x,mu,sig) { return Math.exp(-0.5*((x-mu)/sig)**2)/(sig*Math.sqrt(2*Math.PI)); }
+function probBetween(lo,hi,mu,sig) {
+  return (hi>=99?1:normalCDF(hi,mu,sig)) - (lo<=-99?0:normalCDF(lo,mu,sig));
+}
+function pctRank(val,data) { return data.filter(v=>v<=val).length/data.length; }
+function quartilClass(pct) {
+  if (pct<=0.25) return 'q1';
+  if (pct<=0.50) return 'q2';
+  if (pct<=0.75) return 'q3';
+  return 'q4';
+}
+function quartilLabel(pct) {
+  if (pct<=0.25) return 'Q1';
+  if (pct<=0.50) return 'Q2';
+  if (pct<=0.75) return 'Q3';
+  return 'Q4';
+}
+function fmt1(v) { return v.toFixed(1)+'%'; }
+
+// ─── BUILD DATASETS ──────────────────────────────────────────────
+function buildDatasets(mu, sig, lo, hi, color, shadedColor) {
+  const N=300, xMin=mu-4*sig, xMax=mu+4*sig;
+  const curve=[], shaded=[];
+  for (let i=0;i<N;i++) {
+    const x = xMin+(xMax-xMin)*i/(N-1);
+    const p = normalPDF(x,mu,sig);
+    curve.push({x,y:p});
+    const inRange = (lo<=-99||x>=lo) && (hi>=99||x<=hi);
+    shaded.push({x, y: inRange ? p : null});
+  }
+  return [
+    { data:curve,  borderColor:color, backgroundColor:'transparent', borderWidth:2.5, pointRadius:0, tension:0.4, fill:false, parsing:false, order:1 },
+    { data:shaded, borderColor:'transparent', backgroundColor:shadedColor, borderWidth:0, pointRadius:0, tension:0.4, fill:'origin', parsing:false, order:2 }
+  ];
+}
+
+// ─── SELIC DATA ──────────────────────────────────────────────────
+const selicAll  = Object.keys(selicMonthly).map(y=>({year:+y, val:selicAnual(+y)}));
+const selicExcl = selicAll.filter(d=>d.year!==2020).map(d=>d.val);
+const selicMu   = mean(selicExcl);
+const selicSig  = std(selicExcl);
+const selicN    = selicExcl.length;
+const selicSorted = [...selicExcl].sort((a,b)=>a-b);
+const selicMed  = selicSorted[Math.floor(selicN/2)];
+const selicMinD = selicAll.filter(d=>d.year!==2020).reduce((a,b)=>a.val<b.val?a:b);
+const selicMaxD = selicAll.filter(d=>d.year!==2020).reduce((a,b)=>a.val>b.val?a:b);
+
+document.getElementById('selic-mean').textContent = fmt1(selicMu);
+document.getElementById('selic-std').textContent  = fmt1(selicSig);
+document.getElementById('selic-min').textContent  = fmt1(selicMinD.val);
+document.getElementById('selic-min-yr').textContent = selicMinD.year;
+document.getElementById('selic-max').textContent  = fmt1(selicMaxD.val);
+document.getElementById('selic-max-yr').textContent = selicMaxD.year;
+document.getElementById('selic-med').textContent  = fmt1(selicMed);
+document.getElementById('selic-n').textContent    = selicN;
+
+// ─── INCC DATA ───────────────────────────────────────────────────
+const inccAll   = Object.keys(inccAnnual).map(y=>({year:+y, val:inccAnnual[+y]}));
+const inccExcl  = inccAll.filter(d=>d.year!==2020).map(d=>d.val);
+const inccMu    = mean(inccExcl);
+const inccSig   = std(inccExcl);
+const inccN     = inccExcl.length;
+const inccSorted = [...inccExcl].sort((a,b)=>a-b);
+const inccMed   = inccSorted[Math.floor(inccN/2)];
+const inccMinD  = inccAll.filter(d=>d.year!==2020).reduce((a,b)=>a.val<b.val?a:b);
+const inccMaxD  = inccAll.filter(d=>d.year!==2020).reduce((a,b)=>a.val>b.val?a:b);
+
+document.getElementById('incc-mean').textContent = fmt1(inccMu);
+document.getElementById('incc-std').textContent  = fmt1(inccSig);
+document.getElementById('incc-min').textContent  = fmt1(inccMinD.val);
+document.getElementById('incc-min-yr').textContent = inccMinD.year;
+document.getElementById('incc-max').textContent  = fmt1(inccMaxD.val);
+document.getElementById('incc-max-yr').textContent = inccMaxD.year;
+document.getElementById('incc-med').textContent  = fmt1(inccMed);
+document.getElementById('incc-n').textContent    = inccN;
+
+// ─── CHARTS ─────────────────────────────────────────────────────
+function makeChart(canvasId, mu, sig, color, shadeColor) {
+  const maxY = normalPDF(mu,mu,sig)*1.2;
+  return new Chart(document.getElementById(canvasId), {
+    type:'line',
+    data:{ datasets: buildDatasets(mu,sig,0,5,color,shadeColor) },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      animation:{ duration:300 },
+      plugins:{ legend:{display:false}, tooltip:{filter:()=>false} },
+      scales:{
+        x:{
+          type:'linear', min:mu-4*sig, max:mu+4*sig,
+          ticks:{ callback:v=>(Number.isInteger(Math.round(v))&&Math.abs(v-Math.round(v))<0.08)?Math.round(v)+'%':'', color:'#999', font:{size:11}, maxTicksLimit:14 },
+          grid:{ color:'rgba(0,0,0,0.04)' },
+          title:{ display:true, text:'Taxa anual (% a.a.)', color:'#999', font:{size:11} }
+        },
+        y:{ min:0, max:maxY, ticks:{display:false}, grid:{display:false}, border:{display:false} }
+      }
+    },
+    plugins:[{
+      id:'annotations',
+      afterDraw(chart) {
+        const ctx=chart.ctx, xs=chart.scales.x, ys=chart.scales.y;
+        const muPx=xs.getPixelForValue(mu);
+        ctx.save();
+        ctx.beginPath(); ctx.strokeStyle=color; ctx.lineWidth=1.5; ctx.setLineDash([5,4]);
+        ctx.moveTo(muPx,ys.top); ctx.lineTo(muPx,ys.bottom); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle=color; ctx.font='500 11px DM Sans, sans-serif'; ctx.textAlign='center';
+        ctx.fillText('média '+fmt1(mu), muPx, ys.top-6);
+        ctx.restore();
+      }
+    }]
+  });
+}
+
+const selicChart = makeChart('selicChart', selicMu, selicSig, '#0E5A6B', 'rgba(14,90,107,0.18)');
+const inccChart  = makeChart('inccChart',  inccMu,  inccSig,  '#1A3A5A', 'rgba(26,58,90,0.18)');
+
+// ─── RANGE CONTROLS ──────────────────────────────────────────────
+function updateBanner(id, lo, hi, mu, sig, n, color) {
+  const prob = probBetween(lo,hi,mu,sig);
+  const pct  = (prob*100).toFixed(1)+'%';
+  const anos = Math.round(prob*n);
+  const rangeLabel = lo<=-99 ? 'toda a distribuição' : hi>=99 ? 'acima de '+lo+'%' : lo<=0 ? 'abaixo de '+hi+'%' : lo+'% a '+hi+'%';
+
+  let context = '';
+  if (lo<=-99||hi>=99) {
+    context = 'Distribuição completa — 100% dos cenários históricos.';
+  } else {
+    const realCount = (id==='selic'?selicAll:inccAll)
+      .filter(d=>d.year!==2020&&d.val>=lo&&(hi>=99||d.val<hi)).length;
+    context = `Na prática: ${realCount} de ${n} anos registraram taxa nessa faixa.`;
+  }
+
+  document.getElementById(id+'-prob').textContent        = pct;
+  document.getElementById(id+'-range-label').textContent = rangeLabel;
+  document.getElementById(id+'-anos').textContent        = `≈ ${anos} a cada ${n} anos`;
+  document.getElementById(id+'-context').textContent     = context;
+}
+
+function updateChart(chart, mu, sig, lo, hi, color, shadeColor) {
+  chart.data.datasets = buildDatasets(mu, sig, lo, hi, color, shadeColor);
+  chart.update('none');
+}
+
+function setSelicRange(btn, lo, hi) {
+  document.querySelectorAll('#selic-range-btns .range-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  updateBanner('selic', lo, hi, selicMu, selicSig, selicN, '#0E5A6B');
+  updateChart(selicChart, selicMu, selicSig, lo, hi, '#0E5A6B', 'rgba(14,90,107,0.18)');
+}
+function setInccRange(btn, lo, hi) {
+  document.querySelectorAll('#incc-range-btns .range-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  updateBanner('incc', lo, hi, inccMu, inccSig, inccN, '#1A3A5A');
+  updateChart(inccChart, inccMu, inccSig, lo, hi, '#1A3A5A', 'rgba(26,58,90,0.18)');
+}
+
+// Init banners
+updateBanner('selic', 0, 5, selicMu, selicSig, selicN);
+updateBanner('incc',  0, 5, inccMu,  inccSig,  inccN);
+
+// ─── HIST GRIDS ──────────────────────────────────────────────────
+function buildHistGrid(containerId, allData, exclData, isIncc) {
+  const container = document.getElementById(containerId);
+  const cls = isIncc ? 'incc' : '';
+  allData.sort((a,b)=>a.year-b.year).forEach(({year,val}) => {
+    const is2020 = year===2020;
+    const pct  = is2020 ? null : pctRank(val, exclData);
+    const qcls = is2020 ? 'out' : quartilClass(pct);
+    const qlbl = is2020 ? '2020' : quartilLabel(pct);
+    const card = document.createElement('div');
+    card.className = `hist-card ${cls}`;
+    card.innerHTML = `
+      <div>
+        <div class="hist-year">${year}</div>
+        <div class="hist-val ${isIncc?'incc-val':'selic-val'}">${val.toFixed(1)}%</div>
+      </div>
+      <div class="hist-badge ${qcls}">${qlbl}</div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+buildHistGrid('selic-hist-grid', selicAll.map(d=>({year:d.year,val:d.val})), selicExcl, false);
+buildHistGrid('incc-hist-grid',  inccAll,  inccExcl, true);
+
+// ─── TABS ────────────────────────────────────────────────────────
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  btn.classList.add('active');
+  if (tab==='selic') selicChart.resize();
+  else inccChart.resize();
+}
+</script>
+</body>
+</html>
